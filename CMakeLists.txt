@@ -10,6 +10,10 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexec-charset=UTF-8")
  add_library(AchillesLink STATIC
          src/net/InetAddress.cpp
          src/net/Socket.cpp
+         src/net/TcpConnection.cpp
+         src/protocol/ModbusMessage.cpp
+         src/reactor/Channel.cpp
+         src/reactor/Epoll.cpp
  )
 
 # 配置库的头文件路径

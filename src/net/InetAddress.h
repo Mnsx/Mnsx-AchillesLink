@@ -43,18 +43,12 @@ namespace mnsx {
              */
             uint16_t toIpPort() const;
 
-            /**
-             * 暴露底层的sockaddr结构体指针
-             * @return sockaddr
-             */
-            const sockaddr* GetSockAddr() const {
+            // Getter
+            const sockaddr* getSockAddr() const {
                 return reinterpret_cast<const sockaddr*>(&addr_);
             }
 
-            /**
-             * 设置sockaddr
-             * @param addr sockaddr
-             */
+            // Setter
             void setSockAddr(const sockaddr_in &addr) {
                 this->addr_ = addr;
             }
