@@ -5,6 +5,7 @@
  */
 #include "../include/EventLoop.h"
 #include "../include/TcpServer.h"
+#include "../include/TcpClient.h"
 #include "../include/TcpConnection.h"
 #include "../src/protocol/ModbusMessage.h" // 确保路径对应你的实际位置
 
@@ -44,29 +45,37 @@ void onMessage(const std::shared_ptr<TcpConnection>& conn, const ModbusMessage& 
     conn->send(reply_data);
 }
 
+// ... 前面保持你原来的 TcpServer 测试代码 ...
+
 int main() {
-
-    setvbuf(stdout, nullptr, _IONBF, 0);
-    std::cout << "========== Mnsx-AchillesLink ==========" << std::endl;
-    std::cout << "初始化 EventLoop..." << std::endl;
-
-    // 1. 创建整个应用唯一的心脏
     EventLoop loop;
 
-    // 2. 创建服务器总指挥，绑定 Loop，监听 8080 端口
+    // 1. 启动你的 Server
     TcpServer server(&loop, 8080);
-
-    // 3. 注册我们刚才写的业务回调
     server.setConnectionCallback(onConnection);
     server.setMessageCallback(onMessage);
-
-    // 4. 启动服务端 (此时只是开始 listen 并注册事件，不会阻塞)
     server.start();
 
-    std::cout << "引擎点火！服务器正在 8080 端口死循环监听..." << std::endl;
-    std::cout << "=======================================" << std::endl;
+    // 2. 启动你的 Client (复用同一个心脏！)
+    // 创建一个指向本机的地址
+    InetAddress server_addr(8080, "127.0.0.1");
+    TcpClient client(&loop, server_addr);
 
-    // 5. 正式死循环，接管所有网络 I/O 和跨线程任务
+    // 给 Client 也设置回调
+    client.setConnectionCallback([](const std::shared_ptr<TcpConnection>& conn) {
+        // 如果连接成功，Client 主动发一条消息打招呼
+        std::vector<uint8_t> hello = {'H', 'e', 'l', 'l', 'o', '\n'};
+        conn->send(hello);
+    });
+
+    client.setMessageCallback([](const std::shared_ptr<TcpConnection>& conn, const ModbusMessage& parser) {
+        std::cout << "[Client端] 收到了来自 Server 的回复！" << std::endl;
+    });
+
+    // 3. Client 发起连接
+    client.connect();
+
+    // 4. 引擎启动
     loop.loop();
 
     return 0;

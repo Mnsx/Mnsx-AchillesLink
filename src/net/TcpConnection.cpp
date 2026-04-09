@@ -36,6 +36,11 @@ namespace mnsx {
             this->state_ = ConnectionState::CONNECTED;
             // 监听读取事件
             this->channel_->enableReading();
+
+            // 执行连接事件
+            if (this->connection_callback_ != nullptr) {
+                this->connection_callback_(shared_from_this());
+            }
         }
 
         void TcpConnection::send(const std::vector<uint8_t> &data) {
