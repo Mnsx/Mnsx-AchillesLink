@@ -8,10 +8,7 @@
 #define MNSX_ACHILLESLINK_INETADDRESS_H
 
 #include <string>
-#include <cstdint>
-#include <sys/socket.h>
 #include <netinet/in.h>
-#include <arpa/inet.h>
 
 namespace mnsx {
     namespace achilles {
@@ -21,46 +18,46 @@ namespace mnsx {
             /**
              * @brief 构造函数
              * @param port
-             * @param ip 默认使用 "0.0.0.0"
+             * @param ip
              */
-            explicit InetAddress(uint16_t port, std::string ip = "0.0.0.0");
+            explicit InetAddress(uint16_t port, const std::string& ip = "0.0.0.0");
+            /**
+             * @brief 构造函数，将sockaddr_in转换为InetAddress
+             * @param addr 使用常量左值引用作为形参，这样可以避免按值传递，且const可以保证可读性，还能同时接收左值和右值
+             */
+            explicit InetAddress(const struct sockaddr_in& addr) : addr_(addr) {}
+            /**
+             * @brief 析构函数
+             */
+            ~InetAddress() = default;
 
             /**
-             * @brief 构造函数
+             * @brief 获取存储在addr_中的IP地址
+             * @return 因为内部使用临时变量存放IP地址，所以只能通过拷贝，不能使用引用
+             */
+            std::string getIp() const;
+            /**
+             * @brief
+             * @return 获取存储在addr_中的端口号
+             */
+            uint16_t getPort() const;
+
+            /**
+             * @brief 成员变量addr_的Getter，方便后续原生接口使用应该返回指针
+             * @return
+             */
+            struct sockaddr_in* getAddr() { return &addr_; }
+
+            /**
+             * @brief 成员变量addr_的Setter
              * @param addr
              */
-            explicit InetAddress(const sockaddr_in &addr) : addr_(addr) {}
+            void setAddr(const struct sockaddr_in& addr) { this->addr_ = addr; }
 
-            /**
-             * @brief 将网络字节序整数IP转换为字符串
-             * @return
-             */
-            std::string toIp() const;
-
-            /**
-             * @brief 将网络字节序整数端口号转换为无符号整型
-             * @return
-             */
-            uint16_t toIpPort() const;
-
-            /**
-             * @brief Getter
-             * @return
-             */
-            const sockaddr* getSockAddr() const {
-                return reinterpret_cast<const sockaddr*>(&addr_);
-            }
-
-            /**
-             * @brief setter
-             * @param addr
-             */
-            void setSockAddr(const sockaddr_in &addr) {
-                this->addr_ = addr;
-            }
         private:
-            sockaddr_in addr_{}; // 存储端口和IP的结构体
+            struct sockaddr_in addr_{}; // 使用初始化列表赋初值，只保留结构体，其大小为16字节，在网络编程中，可以急速拷贝
         };
+
     }
 }
 
