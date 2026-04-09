@@ -2,7 +2,7 @@
  * @file Socket.cpp
  * @author Mnsx_x <xx1527030652@gmail.com>
  * @date 2026/4/8
- * @description 接口实现
+ * @description 封装原生Socket文件描述符，基于RAII管理生命周期，并且提供非阻塞和套接字选项配置
  */
 #include "Socket.h"
 
@@ -10,6 +10,7 @@
 #include <sys/socket.h>
 #include <fcntl.h>
 #include <system_error>
+#include <iostream>
 
 namespace mnsx {
     namespace achilles {
@@ -80,6 +81,25 @@ namespace mnsx {
         void Socket::setReusePort(bool on) {
             int opt = on ? 1 : 0;
             ::setsockopt(this->fd_, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt));
+        }
+
+        std::unique_ptr<Socket> Socket::createNoblockSocket(uint16_t port) {
+            int sockfd = ::socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, IPPROTO_TCP);
+            if (sockfd < 0) {
+                std::cerr << "[Socket] Create Socket Error!" << std::endl;
+                exit(EXIT_FAILURE);
+            }
+
+            // 2. 将原始 fd 交给堆上的 Socket 对象包装
+            auto sock = std::unique_ptr<Socket>(new Socket(sockfd));
+
+            // 3. 在这里统一完成所有高阶配置
+            sock->setReuseAddr(true);
+            sock->setReusePort(true);
+            sock->bind(InetAddress(port));
+
+            // 4. 返回智能指针，生命周期被安全转移，绝不会触发析构！
+            return sock;
         }
     }
 }

@@ -2,13 +2,14 @@
  * @file Socket.h
  * @author Mnsx_x <xx1527030652@gmail.com>
  * @date 2026/4/8
- * @description 封装Linux原生Socket
+ * @description 封装原生Socket文件描述符，基于RAII管理生命周期，并且提供非阻塞和套接字选项配置
  */
 #ifndef MNSX_ACHILLESLINK_SOCKET_H
 #define MNSX_ACHILLESLINK_SOCKET_H
 
-
 #include "InetAddress.h"
+
+#include <memory>
 
 namespace mnsx {
     namespace achilles {
@@ -16,13 +17,13 @@ namespace mnsx {
         class Socket {
         public:
             /**
-             * @brief 默认构造，创建Socket
+             * @brief 构造函数
              */
             Socket();
 
             /**
-             * @brief 包装一个已有的文件描述符
-             * @param fd 文件描述符
+             * @brief 构造函数，包装已存在的文件描述符
+             * @param fd
              */
             explicit Socket(int fd) : fd_(fd) {}
 
@@ -31,36 +32,48 @@ namespace mnsx {
              */
             ~Socket();
 
-            // 禁止拷贝，防止Socket被多次关闭
+            /**
+             * @delete
+             */
             Socket(const Socket&) = delete;
+
+            /**
+             * @delete
+             */
             Socket& operator=(const Socket&) = delete;
 
-            // 允许移动操作
+            /**
+             * @brief 移动构造函数
+             */
             Socket(Socket&&) noexcept;
+
+            /**
+             * @brief 移动赋值运算符重载
+             * @return
+             */
             Socket& operator=(Socket&&) noexcept;
 
             /**
              * @brief Socket绑定
-             * @param addr 绑定的网络地址
-             * @return 是否成功
+             * @param addr 绑定对象地址
+             * @return
              */
             bool bind(const InetAddress& addr);
 
             /**
              * @brief 监听Socket
              * @param backlog 等待accept的Socket的个数
-             * @return 是否成功
+             * @return
              */
             bool listen(int backlog = 1024);
 
             /**
-             * @brief 将等待的Socket指向目标地址
+             * @brief 为完成连接的套接字分配新的fd，方便数据传输
              * @param peerAddr 目标地址
-             * @return 返回跟这个地址通话的文件描述符句柄
+             * @return 返回用于数据传输的新的fd
              */
             int accept(InetAddress& peerAddr);
 
-            // 配置
             /**
              * @brief 开启非阻塞模式，epoll模式下必须开启
              * @param on
@@ -79,22 +92,32 @@ namespace mnsx {
              */
             void setReusePort(bool on);
 
-            // Getter
+            /**
+             * @brief Getter
+             * @return
+             */
             int getFd() const {
                 return this->fd_;
             }
 
             /**
              * @brief 判断当前句柄是否合法
-             * @return 是否合法
+             * @return
              */
-            bool isValid() const {
-                return fd_ != -1;
-            }
+            bool isValid() const;
+
+            static std::unique_ptr<Socket> createNoblockSocket(uint16_t port);
 
         private:
             int fd_; // 套接字的句柄
         };
+
+        inline bool Socket::isValid() const {
+            if (this->fd_ < 0) {
+                return false;
+            }
+            return true;
+        }
     }
 }
 

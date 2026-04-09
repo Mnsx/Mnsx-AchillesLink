@@ -2,7 +2,7 @@
  * @file ModbusMessage.cpp
  * @author Mnsx_x <xx1527030652@gmail.com>
  * @date 2026/4/8
- * @description 
+ * @description Modbus协议报文定义，负责处理底层字节流序列化与反序列化解析
  */
 #include "ModbusMessage.h"
 

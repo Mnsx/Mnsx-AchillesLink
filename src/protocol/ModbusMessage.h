@@ -2,7 +2,7 @@
  * @file ModbusMessage.h
  * @author Mnsx_x <xx1527030652@gmail.com>
  * @date 2026/4/8
- * @description 
+ * @description Modbus协议报文定义，负责处理底层字节流序列化与反序列化解析
  */
 #ifndef MNSX_ACHILLESLINK_MODBUSMESSAGE_H
 #define MNSX_ACHILLESLINK_MODBUSMESSAGE_H
@@ -27,7 +27,7 @@ namespace mnsx {
         class ModbusMessage {
         public:
             /**
-             * @brief 默认构造函数
+             * @brief 构造函数
              */
             ModbusMessage() = default;
 
@@ -40,16 +40,31 @@ namespace mnsx {
              */
             bool parseFromRaw(const uint8_t* data, size_t len, size_t& parsedLength);
 
-            // Getter
+            /**
+             * @brief Getter
+             * @return
+             */
             uint16_t getTransactionId() const {
                 return this->transaction_id_;
             }
+            /**
+             * @brief Getter
+             * @return
+             */
             uint8_t getUnitId() const {
                 return this->unit_id_;
             }
+            /**
+             * @brief Getter
+             * @return
+             */
             uint8_t getFunctionCode() const {
                 return this->function_code_;
             }
+            /**
+             * @brief Getter
+             * @return
+             */
             const std::vector<uint8_t>& getPayload() const {
                 return this->payload_;
             }

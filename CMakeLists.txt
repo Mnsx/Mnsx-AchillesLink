@@ -1,32 +1,19 @@
 cmake_minimum_required(VERSION 3.10)
 project(Mnsx-AchillesLink LANGUAGES CXX)
 
-# 全局设置
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexec-charset=UTF-8")
 
-# 定义核心库
- add_library(AchillesLink STATIC
-         src/net/InetAddress.cpp
-         src/net/Socket.cpp
-         src/net/TcpConnection.cpp
-         src/protocol/ModbusMessage.cpp
-         src/reactor/Channel.cpp
-         src/reactor/Epoll.cpp
- )
+file(GLOB_RECURSE LIB_SRC_FILES "src/*.cpp")
 
-# 配置库的头文件路径
-include_directories(AchillesLink PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
-)
+add_library(AchillesLink STATIC ${LIB_SRC_FILES})
 
-# 定义实例程序
+target_include_directories(AchillesLink PUBLIC ${PROJECT_SOURCE_DIR}/include)
+target_include_directories(AchillesLink PRIVATE ${PROJECT_SOURCE_DIR}/src)
+
+target_link_libraries(AchillesLink PUBLIC pthread)
+
+# 示例程序
 add_executable(AchillesDemo examples/BasicUsage.cpp)
-
-# 建立连接关系
 target_link_libraries(AchillesDemo PRIVATE AchillesLink)
-
-if(WIN32)
- target_link_libraries(AchillesLink PUBLIC ws2_32)
-endif()

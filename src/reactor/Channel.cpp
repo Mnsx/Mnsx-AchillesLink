@@ -7,16 +7,17 @@
 #include "Channel.h"
 
 #include "Epoll.h"
+#include "EventLoop.h"
 
 namespace mnsx {
     namespace achilles {
 
         // 定义Epoll事件标志
-        const uint32_t NONE_EVENT = 0;
-        const uint32_t READ_EVENT = EPOLLIN | EPOLLPRI | EPOLLRDHUP;
-        const uint32_t WRITE_EVENT = EPOLLOUT | EPOLLET;
+        constexpr const uint32_t NONE_EVENT = 0;
+        constexpr const uint32_t READ_EVENT = EPOLLIN | EPOLLPRI | EPOLLRDHUP;
+        constexpr const uint32_t WRITE_EVENT = EPOLLOUT | EPOLLET;
 
-        Channel::Channel(Epoll *epoll, int fd) : epoll_(epoll), fd_(fd), events_(NONE_EVENT), revents_(0) {}
+        Channel::Channel(EventLoop* loop, int fd) : loop_(loop), fd_(fd), events_(NONE_EVENT), revents_(0) {}
 
         void Channel::handleEvent() {
 
@@ -59,7 +60,7 @@ namespace mnsx {
         }
 
         void Channel::update() {
-            this->epoll_->updateEvent(this->fd_, this->events_);
+            this->loop_->updateChannel(this);
         }
     }
 }

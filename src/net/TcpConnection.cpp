@@ -2,9 +2,10 @@
  * @file TcpConnection.cpp
  * @author Mnsx_x <xx1527030652@gmail.com>
  * @date 2026/4/8
- * @description
+ * @description 核心连接抽象，负责单条TCP连接的状态机、缓冲区以及非阻塞I/O数据收发
  */
-#include "TcpConnection.h"
+#include "../include/TcpConnection.h"
+#include "../include/EventLoop.h"
 
 #include <unistd.h>
 #include <sys/socket.h>
@@ -13,8 +14,8 @@
 
 namespace mnsx {
     namespace achilles {
-        TcpConnection::TcpConnection(Epoll *epoll, int conn_fd) : state_(ConnectionState::CONNECTING),
-            epoll_(epoll), socket_(new Socket(conn_fd)), channel_(new Channel(epoll, conn_fd)) {
+        TcpConnection::TcpConnection(EventLoop* loop, int conn_fd) : loop_(loop), state_(ConnectionState::CONNECTING),
+            socket_(new Socket(conn_fd)), channel_(new Channel(loop, conn_fd)) {
 
             // 将Socket设置为非阻塞模式
             this->socket_->setNonBlocking(true);
@@ -27,6 +28,7 @@ namespace mnsx {
         }
 
         TcpConnection::~TcpConnection() {
+            // TODO 日志部分处理
             std::cout << "[Mnsx-AchillesLink TcpConnection] 连接已销毁，fd：" << this->socket_->getFd() << std::endl;
         }
 
@@ -37,6 +39,37 @@ namespace mnsx {
         }
 
         void TcpConnection::send(const std::vector<uint8_t> &data) {
+
+            if (this->state_ != ConnectionState::CONNECTED) {
+                return;
+            }
+
+            if (this->loop_->isInLoopThread()) {
+
+                // 直接发送
+                sendInLoop(data);
+            } else {
+
+                auto self = shared_from_this();
+                this->loop_->runInLoop([self, data]() {
+                    self->sendInLoop(data);
+                });
+            }
+        }
+
+        void TcpConnection::shutdown() {
+
+            if (this->state_ == ConnectionState::CONNECTED) {
+                this->state_ = ConnectionState::DISCONNECTED;
+
+                // 如果发送缓冲区还未关闭，那么会等待handle_write执行完毕后，关闭
+                if (this->output_buffer_.empty()) {
+                    ::shutdown(this->socket_->getFd(), SHUT_WR);
+                }
+            }
+        }
+
+        void TcpConnection::sendInLoop(const std::vector<uint8_t> &data) {
 
             if (this->state_ != ConnectionState::CONNECTED) {
                 // 连接已经断开拒绝读取
@@ -69,18 +102,6 @@ namespace mnsx {
             }
         }
 
-        void TcpConnection::shutdown() {
-
-            if (this->state_ == ConnectionState::CONNECTED) {
-                this->state_ = ConnectionState::DISCONNECTED;
-
-                // 如果发送缓冲区还未关闭，那么会等待handle_write执行完毕后，关闭
-                if (this->output_buffer_.empty()) {
-                    ::shutdown(this->socket_->getFd(), SHUT_WR);
-                }
-            }
-        }
-
         void TcpConnection::handleRead() {
             // 边缘触发，必须读到返回EAGAIN为止
             uint8_t tempBuf[65536];
@@ -93,7 +114,7 @@ namespace mnsx {
                 } else if (n == 0) {
                     // 返回0代表客户端主动断开连接
                     handleClose();
-                    break;
+                    return;
                 } else {
                     if (errno == EAGAIN || errno == EWOULDBLOCK) {
                         // 已经读取完毕
@@ -104,27 +125,27 @@ namespace mnsx {
                     } else {
                         // 异常
                         handleError();
-                        break;
-                    }
-                }
-
-                // 处理缓冲区数据
-                if (!this->input_buffer_.empty()) {
-                    size_t parsedLength = 0;
-
-                    while (this->parser_.parseFromRaw(this->input_buffer_.data(), this->input_buffer_.size(), parsedLength)) {
-
-                        if (this->message_callback_ != nullptr) {
-
-                            this->message_callback_(shared_from_this(), parser_);
-                        }
-
-                        // 擦除已经获取的数据报文，重置接收下一个包
-                        this->input_buffer_.erase(this->input_buffer_.begin(), this->input_buffer_.begin() + parsedLength);
-                        parsedLength = 0;
+                        return;
                     }
                 }
             }
+
+            // 处理缓冲区数据
+            if (!this->input_buffer_.empty()) {
+                size_t parsedLength = 0;
+
+                // while (this->parser_.parseFromRaw(this->input_buffer_.data(), this->input_buffer_.size(), parsedLength)) {
+
+                    if (this->message_callback_ != nullptr) {
+
+                        this->message_callback_(shared_from_this(), parser_);
+                    }
+
+                    // 擦除已经获取的数据报文，重置接收下一个包
+                    this->input_buffer_.erase(this->input_buffer_.begin(), this->input_buffer_.begin() + parsedLength);
+                    parsedLength = 0;
+                }
+            // }
         }
 
         void TcpConnection::handleWrite() {

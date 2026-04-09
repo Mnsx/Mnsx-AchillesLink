@@ -2,7 +2,7 @@
  * @file InetAddress.cpp
  * @author Mnsx_x <xx1527030652@gmail.com>
  * @date 2026/4/8
- * @description 接口实现
+ * @description 封装底层网络地址，提供网络字节序转换和地址解析功能
  */
 #include "InetAddress.h"
 
