@@ -17,93 +17,100 @@ namespace mnsx {
         class EventLoop;
         class Channel {
         public:
-            // 回调函数，业务层解耦
-            using EventCallback = std::function<void()>;
+            using EventCallback = std::function<void()>; // 回调函数类型，业务层可以通过回调函数设置针对不同的事件的handle
 
             /**
-             * @brief 构造函数
+             * 构造函数
+             * @param loop
+             * @param fd
              */
             Channel(EventLoop* loop, int fd);
             /**
-             * @brief 析构函数
+             * 析构函数
              */
             ~Channel() = default;
 
             /**
-             * @brief 核心功能，分发事件
+             * 核心，分发任务，根据active_events_去执行handle，即将epoll和handle绑定
              */
             void handleEvent();
 
             /**
-             * @brief 状态允许读
+             * 允许通道的读行为
              */
             void enableReading();
             /**
-             * @brief 状态允许写
+             * 允许通道的写行为
              */
             void enableWriting();
             /**
-             * @brief 状态禁止写
+             * 禁止通道的写行为
              */
             void disableWriting();
             /**
-             * @brief 状态禁止读写
+             * 禁止通道的读写行为
              */
             void disableAll();
 
             /**
-             * @brief Setter
+             * read_callback_ Setter
              * @param cb
              */
-            void setReadCallback(EventCallback cb) { this->readCallback_ = cb; }
+            void setReadCallback(EventCallback cb) { read_callback_ = std::move(cb); }
             /**
-             * @brief Setter
+             * write_callback_ Setter
              * @param cb
              */
-            void setWriteCallback(EventCallback cb) { this->writeCallback_ = cb; }
+            void setWriteCallback(EventCallback cb) { write_callback_ = std::move(cb); }
             /**
-             * @brief Setter
+             * close_callback_ Setter
              * @param cb
              */
-            void setCloseCallback(EventCallback cb) { this->closeCallback_ = cb; }
+            void setCloseCallback(EventCallback cb) { close_callback_ = std::move(cb); }
             /**
-             * @brief Setter
+             * error_callback_ Setter
              * @param cb
              */
-            void setErrorCallback(EventCallback cb) { this->errorCallback_ = cb; }
+            void setErrorCallback(EventCallback cb) { error_callback_ = std::move(cb); }
             /**
-             * @brief Setter
-             * @param events
+             * active_events_ Setter
+             * @param active_events
              */
-            void setRevents(uint32_t events) {this->revents_ = events;}
-
+            void setActiveEvents(uint32_t active_events) { active_events_ = active_events; }
             /**
-             * @brief Getter
+             * fd_ Getter
              * @return
              */
             int getFd() const { return fd_; }
             /**
-             * @brief Getter
+             * events_ Getter
              * @return
              */
             uint32_t getEvents() const { return events_; }
+            /**
+             * active_events_ Getter
+             * @return
+             */
+            uint32_t getActiveEvents() const { return active_events_; }
+
         private:
             /**
-             * @brief 更新当前通道的状态
+             * 向epoll更新当前通道关注的事件
              */
             void update();
 
-            EventLoop* loop_; // 所属的eventLoop
-            int fd_; // 监控的句柄
+            EventLoop* loop_; // 管理这个Channel的EventLoop
+            int fd_; // 这个通道对应的fd
             uint32_t events_; // 订阅的事件
-            uint32_t revents_; // 实际发生的事件
+            uint32_t active_events_; // 实际发生的事件
 
-            // 回调函数
-            EventCallback readCallback_;
-            EventCallback writeCallback_;
-            EventCallback closeCallback_;
-            EventCallback errorCallback_;
+            // 针对不同事件的回调函数，相当于模型的handle
+            EventCallback read_callback_;
+            EventCallback write_callback_;
+            EventCallback close_callback_;
+            EventCallback error_callback_;
         };
+
     }
 } // mnsx
 

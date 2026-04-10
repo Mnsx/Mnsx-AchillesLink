@@ -46,7 +46,9 @@ namespace mnsx {
              * @brief 成员变量addr_的Getter，方便后续原生接口使用应该返回指针
              * @return
              */
-            struct sockaddr_in* getAddr() { return &addr_; }
+            const struct sockaddr* getAddr() const {
+                return reinterpret_cast<const struct sockaddr*>(&addr_);
+            }
 
             /**
              * @brief 成员变量addr_的Setter

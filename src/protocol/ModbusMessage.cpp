@@ -36,7 +36,7 @@ namespace mnsx {
             this->function_code_ = data[7]; // MBAP消息头后一位就是功能码
 
             // 提取内容
-            size_t payloadLength = bodyLength - 1; // 减去功能码
+            size_t payloadLength = bodyLength - 2; // 减去功能码和
             if (payloadLength > 0) {
                 this->payload_.assign(data + 8, data + 8 + payloadLength); // 8 = 功能码 + MBAP消息头长度7
             } else {

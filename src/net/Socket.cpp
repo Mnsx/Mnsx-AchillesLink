@@ -10,96 +10,105 @@
 #include <sys/socket.h>
 #include <fcntl.h>
 #include <system_error>
+#include <memory>
 #include <iostream>
 
 namespace mnsx {
     namespace achilles {
+
         Socket::Socket() {
-            // 创建IPv4
-            this->fd_ = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+            // 创建socket
+            fd_ = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
         }
 
         Socket::~Socket() {
+            // 判断当前socket的fd是否合法
             if (isValid()) {
                 ::close(fd_);
             }
         }
 
-        Socket::Socket(Socket&& other) noexcept : fd_(other.fd_) {
-            other.fd_ = -1; // 移动后，做空
-        }
-
-        Socket &Socket::operator=(Socket&& other) noexcept {
+        Socket &Socket::operator=(Socket && other) noexcept {
+            // 自我检测
             if (this != &other) {
                 if (isValid()) {
-                    // 释放当前的fd
                     ::close(fd_);
                 }
-                this->fd_ = other.fd_;
+                // 移动other
+                fd_ = other.fd_;
                 other.fd_ = -1;
             }
+
             return *this;
         }
 
-        bool Socket::bind(const InetAddress &addr) {
-            return ::bind(this->fd_, addr.getSockAddr(), sizeof(sockaddr_in)) == 0;
+        bool Socket::bind(const InetAddress &address) {
+            return ::bind(fd_, address.getAddr(), sizeof(struct sockaddr)) == 0;
+        }
+
+        bool Socket::connect(const InetAddress &address) {
+            return ::connect(fd_, address.getAddr(), sizeof(struct sockaddr)) == 0;
         }
 
         bool Socket::listen(int backlog) {
-            return ::listen(this->fd_, backlog) == 0;
+            return ::listen(fd_, backlog) == 0;
         }
 
-        int Socket::accept(InetAddress& peerAddr) {
-            sockaddr_in addr{};
-            socklen_t len = sizeof(addr);
+        int Socket::accept(InetAddress &peerAddress) {
+            // 创建接收对象
+            sockaddr_in temp{};
+            socklen_t len = sizeof(temp);
 
-            // 接收新的连接
-            int connFd = ::accept(this->fd_, reinterpret_cast<sockaddr *>(&addr), &len);
-            if (connFd >= 0) {
-                peerAddr.setSockAddr(addr);
+            int new_fd = ::accept(fd_, reinterpret_cast<sockaddr *>(&temp), &len);
+            if (new_fd > 0) {
+                // 更换
+                peerAddress.setAddr(temp);
             }
-            return connFd;
+
+            return new_fd;
         }
 
         void Socket::setNonBlocking(bool on) {
-            // 获取Socket的所有设置
-            int flags = ::fcntl(this->fd_, F_GETFL, 0);
+            // 获取socket的所有设置
+            int flags = ::fcntl(fd_, F_GETFL, 0);
             if (on) {
                 flags |= O_NONBLOCK;
             } else {
                 flags &= ~O_NONBLOCK;
             }
-            // 设置Socket
-            ::fcntl(this->fd_, F_SETFL, flags);
+            // 设置socket
+            ::fcntl(fd_, F_SETFL, flags);
         }
 
         void Socket::setReuseAddr(bool on) {
             int opt = on ? 1 : 0;
-            ::setsockopt(this->fd_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+            ::setsockopt(fd_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
         }
 
         void Socket::setReusePort(bool on) {
             int opt = on ? 1 : 0;
-            ::setsockopt(this->fd_, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt));
+            ::setsockopt(fd_, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt));
         }
 
-        std::unique_ptr<Socket> Socket::createNoblockSocket(uint16_t port) {
-            int sockfd = ::socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, IPPROTO_TCP);
-            if (sockfd < 0) {
-                std::cerr << "[Socket] Create Socket Error!" << std::endl;
+        // TODO 修改
+        std::unique_ptr<Socket> Socket::createServerSocket(uint16_t port) {
+            // 创建一个非阻塞的Socket
+            int sock_fd = ::socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, IPPROTO_TCP);
+            if (sock_fd < 0) {
+                // 后续log
                 exit(EXIT_FAILURE);
             }
 
-            // 2. 将原始 fd 交给堆上的 Socket 对象包装
-            auto sock = std::unique_ptr<Socket>(new Socket(sockfd));
+            // 将fd放入Socket中，由Socket接管他的声明周期
+            auto socket = std::unique_ptr<Socket>(new Socket(sock_fd));
 
-            // 3. 在这里统一完成所有高阶配置
-            sock->setReuseAddr(true);
-            sock->setReusePort(true);
-            sock->bind(InetAddress(port));
+            // 配置
+            socket->setReuseAddr(true);
+            socket->setReusePort(true);
+            int res = socket->bind(InetAddress(port));
 
-            // 4. 返回智能指针，生命周期被安全转移，绝不会触发析构！
-            return sock;
+            return socket;
         }
+
     }
 }

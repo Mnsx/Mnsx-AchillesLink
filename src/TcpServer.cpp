@@ -17,7 +17,7 @@
 namespace mnsx {
     namespace achilles {
         TcpServer::TcpServer(EventLoop *loop, uint16_t port) : main_loop_(loop),
-            accept_socket_(Socket::createNoblockSocket(port)),
+            accept_socket_(Socket::createServerSocket(port)),
             accept_channel_(std::unique_ptr<Channel>(new Channel(main_loop_, accept_socket_->getFd()))) {
 
             accept_channel_->setReadCallback([this]() {

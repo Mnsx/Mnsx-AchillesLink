@@ -17,109 +17,109 @@ namespace mnsx {
         class Socket {
         public:
             /**
-             * @brief 构造函数
+             * 空参构造函数
              */
             Socket();
-
             /**
-             * @brief 构造函数，包装已存在的文件描述符
+             * 包装一个已经存在的fd
              * @param fd
              */
-            explicit Socket(int fd) : fd_(fd) {}
-
+            Socket(int fd) : fd_(fd) {}
             /**
-             * @brief 析构函数
+             * 析构函数
              */
             ~Socket();
-
             /**
              * @delete
              */
             Socket(const Socket&) = delete;
-
             /**
              * @delete
              */
             Socket& operator=(const Socket&) = delete;
-
             /**
-             * @brief 移动构造函数
+             * 移动构造函数
              */
-            Socket(Socket&&) noexcept;
-
+            Socket(Socket&& other) noexcept : fd_(other.fd_) { other.fd_ = -1; }
             /**
-             * @brief 移动赋值运算符重载
+             * 移动赋值运算符
              * @return
              */
             Socket& operator=(Socket&&) noexcept;
 
             /**
-             * @brief Socket绑定
-             * @param addr 绑定对象地址
+             * 为socket绑定地址
+             * @param address
              * @return
              */
-            bool bind(const InetAddress& addr);
-
+            bool bind(const InetAddress& address);
             /**
-             * @brief 监听Socket
-             * @param backlog 等待accept的Socket的个数
+             * 监听
+             * @param backlog 最大监听个数，默认1024
              * @return
              */
             bool listen(int backlog = 1024);
-
             /**
-             * @brief 为完成连接的套接字分配新的fd，方便数据传输
-             * @param peerAddr 目标地址
-             * @return 返回用于数据传输的新的fd
+             * 为通过握手的socket分配一个新的fd
+             * @param peerAddress
+             * @return
              */
-            int accept(InetAddress& peerAddr);
+            int accept(InetAddress& peerAddress);
+            /**
+             * 连接
+             * @param address
+             * @return
+             */
+            bool connect(const InetAddress& address);
 
             /**
-             * @brief 开启非阻塞模式，epoll模式下必须开启
-             * @param on
+             * 配置，必备，设置socket非阻塞IO
              */
             void setNonBlocking(bool on);
-
             /**
-             * @brief 防止，重启时地址已被使用的错误（time_wait直接退出）
-             * @param on
+             * 配置，当进程处于time_wait时，直接退出
              */
             void setReuseAddr(bool on);
-
             /**
-             * @brief 允许一个线程管理多个Socket
-             * @param on
+             * 配置，允许一个线程管理多个socket
              */
             void setReusePort(bool on);
 
             /**
-             * @brief Getter
-             * @return
-             */
-            int getFd() const {
-                return this->fd_;
-            }
-
-            /**
-             * @brief 判断当前句柄是否合法
+             * 判断文件描述符是否合法
              * @return
              */
             bool isValid() const;
 
-            static std::unique_ptr<Socket> createNoblockSocket(uint16_t port);
+            /**
+             * fd_ Getter
+             * @return
+             */
+            int getFd() const { return this->fd_; }
+
+            /**
+             * 静态工具函数，创建一个服务端的Socket
+             * @param port
+             * @return
+             */
+            static std::unique_ptr<Socket> createServerSocket(uint16_t port);
+
+            /**
+             * 静态工具函数，创建一个客户端的Socket
+             * @param port
+             * @return
+             */
+            static std::unique_ptr<Socket> createClientSocket(uint16_t port);
 
         private:
-            int fd_; // 套接字的句柄
+            int fd_; // socket对应的文件标识符
         };
 
         inline bool Socket::isValid() const {
-            if (this->fd_ < 0) {
-                return false;
-            }
-            return true;
+            return fd_ > 0;
         }
+
     }
 }
-
 
 #endif //MNSX_ACHILLESLINK_SOCKET_H

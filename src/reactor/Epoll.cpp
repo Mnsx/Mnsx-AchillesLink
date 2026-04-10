@@ -10,15 +10,17 @@
 #include <unistd.h>
 
 #include "Channel.h"
+#include "net/InetAddress.h"
 
 namespace mnsx {
     namespace achilles {
+
         Epoll::Epoll() : events_(MAX_EVENTS) {
-            // 保证进程执行exec时关闭次fd
+            // 当线程执行exec产生子进程时应该关闭子进程的fd，防止同时存在两个fd
             this->epoll_fd_ = ::epoll_create1(EPOLL_CLOEXEC);
             if (this->epoll_fd_ == -1) {
-                // TODO 统一日志格式
-                throw std::runtime_error("[Mnsx-Achilles] epoll_create1 failed...");
+                // TODO logger
+                throw std::runtime_error("epoll_create1 failed");
             }
         }
 
@@ -28,44 +30,40 @@ namespace mnsx {
             }
         }
 
-        void Epoll::updateEvent(Channel* channel) {
-            // 封装结构体
+        void Epoll::updateEvent(Channel *channel) {
             struct epoll_event event{};
             event.events = channel->getEvents();
-            // 将Channel存入data.ptr
-            event.data.ptr = channel;
+            event.data.ptr = channel; // 将channel存放，后续获取event时方便获取对应的通道
 
-            // 将事件添加到监管红黑树中，如果已经存在则使用MOD
-            if (::epoll_ctl(this->epoll_fd_, EPOLL_CTL_ADD, channel->getFd(), &event) == -1) {
-                // 防止重复添加
+            // 将event添加到epoll管理的红黑树中
+            if (::epoll_ctl(epoll_fd_, EPOLL_CTL_ADD, channel->getFd(), &event) == -1) {
+                // 如果错误是已经存在，那么就改为修改
                 if (errno == EEXIST) {
-                    ::epoll_ctl(this->epoll_fd_, EPOLL_CTL_MOD, channel->getFd(), &event);
+                    ::epoll_ctl(epoll_fd_, EPOLL_CTL_MOD, channel->getFd(), &event);
                 }
             }
         }
 
-        void Epoll::removeEvent(Channel* channel) {
-            ::epoll_ctl(this->epoll_fd_, EPOLL_CTL_DEL, channel->getFd(), nullptr);
+        void Epoll::removeEvent(Channel *channel) {
+            ::epoll_ctl(epoll_fd_, EPOLL_CTL_DEL, channel->getFd(), nullptr);
         }
 
         std::vector<Channel *> Epoll::poll(int timeout_ms) {
-
             std::vector<Channel *> active_channels;
 
-            // 等待事件发生，并将关注事件存入列表中
-            int event_count = ::epoll_wait(this->epoll_fd_, events_.data(),
-                static_cast<int>(events_.size()), timeout_ms);
+            int active_count = ::epoll_wait(epoll_fd_, events_.data(),
+            static_cast<int>(events_.size()), timeout_ms);
 
-            // 不能使用移动，因为后续还需要使用
-            for (int i = 0; i < event_count; ++i) {
-                // 将void*转换为Channel*
-                Channel* channel = static_cast<Channel*>(events_[i].data.ptr);
-
-                channel->setRevents(events_[i].events);
-
+            for (int i = 0; i < active_count; ++i) {
+                // 将data.ptr转换为Channel
+                auto channel = static_cast<Channel*>(events_[i].data.ptr);
+                // 设置发生的事件
+                channel->setActiveEvents(events_[i].events);
+                // 将channel存放到容器中
                 active_channels.push_back(channel);
             }
             return active_channels;
         }
+
     }
 }

@@ -17,25 +17,24 @@ namespace mnsx {
         constexpr const uint32_t READ_EVENT = EPOLLIN | EPOLLPRI | EPOLLRDHUP;
         constexpr const uint32_t WRITE_EVENT = EPOLLOUT | EPOLLET;
 
-        Channel::Channel(EventLoop* loop, int fd) : loop_(loop), fd_(fd), events_(NONE_EVENT), revents_(0) {}
+        Channel::Channel(EventLoop *loop, int fd) : loop_(loop), fd_(fd), events_(NONE_EVENT), active_events_(0) {}
 
         void Channel::handleEvent() {
-
             // 断开事件
-            if ((revents_ & EPOLLHUP) && !(revents_ & EPOLLIN)) {
-                if (closeCallback_) closeCallback_();
+            if ((active_events_ & EPOLLHUP) && !(active_events_ & EPOLLIN)) {
+                if (close_callback_) close_callback_();
             }
             // 错误事件
-            if (revents_ & EPOLLERR) {
-                if (errorCallback_) errorCallback_();
+            if (active_events_ & EPOLLERR) {
+                if (error_callback_) error_callback_();
             }
             // 处理可读事件
-            if (revents_ & (EPOLLIN | EPOLLPRI | EPOLLRDHUP)) {
-                if (readCallback_) readCallback_();
+            if (active_events_ & (EPOLLIN | EPOLLPRI | EPOLLRDHUP)) {
+                if (read_callback_) read_callback_();
             }
             // 处理可写事件
-            if (revents_ & EPOLLOUT) {
-                if (writeCallback_) writeCallback_();
+            if (active_events_ & EPOLLOUT) {
+                if (write_callback_) write_callback_();
             }
         }
 
@@ -60,7 +59,8 @@ namespace mnsx {
         }
 
         void Channel::update() {
-            this->loop_->updateChannel(this);
+            loop_->updateChannel(this);
         }
+
     }
 }

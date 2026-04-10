@@ -5,35 +5,36 @@
  * @description 封装事件循环、线程标识以及跨线程任务调度
  */
 #include "../include/EventLoop.h"
+#include "Channel.h"
+#include "Epoll.h"
 
 #include <iostream>
 #include <sys/eventfd.h>
 
-#include "Channel.h"
-#include "Epoll.h"
-
 namespace mnsx {
     namespace achilles {
-        // 创建一个eventfd
+        /**
+         * 辅助函数创建一个负责唤醒的管理者
+         * @return
+         */
         int createEventFd() {
-            int evtfd = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
-            if (evtfd < 0) {
-                std::cerr << "create eventfd failed" << std::endl;
-                exit(EXIT_FAILURE);
-            }
-            return evtfd;
-        }
+           int event_fd = ::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
+           if (event_fd < 0) {
+               // TODO Logger
+               exit(EXIT_FAILURE);
+           }
+           return event_fd;
+       }
 
-        EventLoop::EventLoop() : looping_(false), quit_(false),
-            thread_id_(::syscall(SYS_gettid)), epoll_(new Epoll()),
-            wake_up_fd_(createEventFd()), wake_up_channel_(new Channel(this, wake_up_fd_)),
-            calling_pending_functors_(false) {
+        EventLoop::EventLoop() : looping_(false), quit_(false), thread_id_(::syscall(SYS_gettid)),
+            epoll_(new Epoll), wake_up_fd_(createEventFd()), wake_up_channel_(new Channel(this, wake_up_fd_)),
+                calling_pending_functors_(false) {
 
-            // 将handleWakeUp绑定在Channel的可读回调中
             wake_up_channel_->setReadCallback([this]() {
+                // 读取到心跳包，立马处理
                 this->handleWakeUp();
             });
-            // 开启监听，只要有线程写入数据，就会触发，删除心跳包
+            // 开启监听，允许读事件，读到心跳包，执行回调处理心跳包
             wake_up_channel_->enableReading();
         }
 
@@ -43,78 +44,54 @@ namespace mnsx {
         }
 
         void EventLoop::loop() {
-            looping_ = true;
-            quit_ = false;
+            looping_.store(true);
+            quit_.store(false);
 
-            while (quit_ != true) {
-                // 阻塞等待事件发生，epoll返回活跃的Channel
+            while (quit_.load() != true) {
+                // 阻塞等待，epoll返回触发的事件Channel
                 std::vector<Channel*> active_channels = epoll_->poll();
-
-                // 遍历处理所有事件
+                // 便利所有的触发事件，并执行对应的handle
                 for (auto& channel : active_channels) {
                     channel->handleEvent();
                 }
-
                 // 执行其他线程的任务
                 doPendingFunctors();
             }
 
-            looping_ = false;
+            // 跳出循环
+            looping_.store(false);
         }
 
         void EventLoop::quit() {
-            quit_ = true;
-            // 唤醒Loop线程，检测关闭
+            // 修改原子量
+            quit_.store(true);
+            // 唤醒Loop线程，检测
             if (isInLoopThread() != true) {
+                // 如果不是当前线程，就唤醒Loop，让Loop识别到quit_变化
                 wakeUp();
             }
         }
 
-        void EventLoop::runInLoop(Functor cb) {
+        void EventLoop::runInLoop(Functor functor) {
             if (isInLoopThread()) {
-                // 本线程的任务直接执行
-                cb();
+                // 如果是本线程的任务，直接执行
+                functor();
             } else {
-                queueInLoop(std::move(cb));
+                // 如果不是本线程的任务，加入任务队列，等待执行
+                enqueueInLoop(std::move(functor));
             }
         }
 
-        void EventLoop::queueInLoop(Functor cb) {
-            // 加入任务队列
+        void EventLoop::enqueueInLoop(Functor functor) {
+            // 使用互斥锁，保证加入任务队列时线程安全
             {
                 std::lock_guard<std::mutex> lock(mutex_);
-                pending_functors_.push_back(std::move(cb));
+                pending_functors_.push_back(std::move(functor));
             }
 
             // 如果不是本线程执行需要唤醒，如果正在执行任务，唤醒，因为是将任务队列复制后执行，如果不换形，新加入的任务饿死
             if (isInLoopThread() != true || calling_pending_functors_.load() == true) {
                 wakeUp();
-            }
-        }
-
-        void EventLoop::updateChannel(Channel *channel) {
-            this->epoll_->updateEvent(channel);
-        }
-
-        void EventLoop::removeChannel(Channel *channel) {
-            this->epoll_->removeEvent(channel);
-        }
-
-        void EventLoop::wakeUp() {
-            uint64_t packet = 1;
-            // 发送8字节心跳包
-            ssize_t n = ::write(wake_up_fd_, &packet, sizeof(packet));
-            if (n != sizeof(packet)) {
-                std::cerr << "EventLoop::wakeUp() write error" << std::endl;
-            }
-        }
-
-        void EventLoop::handleWakeUp() {
-            uint64_t packet = 1;
-            // 发送8字节心跳包
-            ssize_t n = ::read(wake_up_fd_, &packet, sizeof(packet));
-            if (n != sizeof(packet)) {
-                std::cerr << "EventLoop::wakeUp() write error" << std::endl;
             }
         }
 
@@ -135,5 +112,36 @@ namespace mnsx {
 
             calling_pending_functors_.store(false);
         }
+
+        void EventLoop::updateChannel(Channel *channel) {
+            this->epoll_->updateEvent(channel);
+        }
+
+        void EventLoop::removeChannel(Channel *channel) {
+            this->epoll_->removeEvent(channel);
+        }
+
+        void EventLoop::wakeUp() {
+
+            // 发送8字节的心跳包，epoll_fd就是一个8字节的计数器
+            uint64_t packet = 1;
+            // 发送8字节心跳包
+            ssize_t n = ::write(wake_up_fd_, &packet, sizeof(packet));
+            if (n != sizeof(packet)) {
+                // Logger
+                std::cerr << "EventLoop::wakeUp() write error" << std::endl;
+            }
+        }
+
+        void EventLoop::handleWakeUp() {
+            uint64_t packet = 1;
+            // 发送8字节心跳包
+            ssize_t n = ::read(wake_up_fd_, &packet, sizeof(packet));
+            if (n != sizeof(packet)) {
+                // Logger
+                std::cerr << "EventLoop::wakeUp() write error" << std::endl;
+            }
+        }
+
     }
 }

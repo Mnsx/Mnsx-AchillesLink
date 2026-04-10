@@ -7,9 +7,8 @@
 #ifndef MNSX_ACHILLESLINK_EPOLL_H
 #define MNSX_ACHILLESLINK_EPOLL_H
 
-#include <sys/epoll.h>
 #include <vector>
-#include <memory>
+#include <sys/epoll.h>
 
 namespace mnsx {
     namespace achilles {
@@ -18,41 +17,36 @@ namespace mnsx {
         class Epoll {
         public:
             /**
-             * @brief 构造函数
+             * 构造函数
              */
             Epoll();
-
             /**
-             * @brief 析构函数
+             * 析构函数
              */
             ~Epoll();
-
             /**
              * @delete
              */
             Epoll(const Epoll&) = delete;
-
             /**
              * @delete
              */
             Epoll& operator=(const Epoll&) = delete;
 
             /**
-             * @brief 更新/添加监控事件
-             * @param channel
+             * 更新关注的事件通道
+             * @param channel 需要将channel放入epoll_data中，所以使用指针最合适
              */
             void updateEvent(Channel* channel);
-
             /**
-             * @brief 移除监控事件
+             * 删除关注的事件通道
              * @param channel
              */
             void removeEvent(Channel* channel);
-
             /**
-             * @brief 等待事件发生
-             * @param timeout_ms 超时事件（毫秒），-1为永久等待
-             * @return 激活的事件列表
+             * 等待事件发生，返回已经发生事件的容器
+             * @param timeout_ms 超时 默认-1不设置超时
+             * @return
              */
             std::vector<Channel *> poll(int  timeout_ms = -1);
 
@@ -61,8 +55,8 @@ namespace mnsx {
             std::vector<struct epoll_event> events_; // 存储活跃事件的缓冲区
             constexpr const static int MAX_EVENTS = 10000; // 最大监控事件数
         };
+
     }
 }
-
 
 #endif //MNSX_ACHILLESLINK_EPOLL_H

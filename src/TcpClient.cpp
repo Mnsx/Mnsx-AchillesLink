@@ -34,7 +34,7 @@ namespace mnsx {
             sock_.reset(new Socket(raw_fd));
             
             // 发起非阻塞连接
-            int ret = ::connect(sock_->getFd(), server_addr_.getSockAddr(), sizeof(sockaddr_in));
+            int ret = ::connect(sock_->getFd(), server_addr_.getAddr(), sizeof(sockaddr_in));
             if (ret == 0) {
                 // 本机连接会直接连接成功
                 newConnection(sock_->getFd());
