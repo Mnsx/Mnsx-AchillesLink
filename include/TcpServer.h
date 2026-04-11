@@ -10,7 +10,9 @@
 #include <map>
 #include <memory>
 #include <functional>
+
 #include "TcpConnection.h"
+#include "../src/net/ByteBuffer.h"
 
 namespace mnsx {
     namespace achilles {
@@ -21,14 +23,14 @@ namespace mnsx {
         class TcpServer {
         public:
             using ConnectionCallback = std::function<void(const std::shared_ptr<TcpConnection>&)>;
-            using MessageCallback = std::function<void(const std::shared_ptr<TcpConnection>&, const ModbusMessage&)>;
+            using MessageCallback = std::function<void(const std::shared_ptr<TcpConnection>&, ByteBuffer*)>;
 
             /**
              * @brief 构造函数
              * @param loop
              * @param port
              */
-            TcpServer(EventLoop* loop, uint16_t port);
+            TcpServer(EventLoop *loop, uint16_t port);
             /**
              * @brief 析构函数
              */

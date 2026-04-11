@@ -10,9 +10,10 @@
 #include <memory>
 #include <vector>
 #include <functional>
+
 #include "../src/net/Socket.h"
+#include "../src/net/ByteBuffer.h"
 #include "../src/reactor/Channel.h"
-#include "../src/protocol/ModbusMessage.h"
 
 namespace mnsx {
     namespace achilles {
@@ -28,7 +29,7 @@ namespace mnsx {
         class EventLoop;
         class TcpConnection;
         // 回调函数，数据处理回调
-        using OnModbusMessageCallback = std::function<void(const std::shared_ptr<TcpConnection>&, const ModbusMessage&)>;
+        using OnModbusMessageCallback = std::function<void(const std::shared_ptr<TcpConnection>&, ByteBuffer*)>;
         // 回调函数，连接关闭回调
         using OnCloseCallback = std::function<void(const std::shared_ptr<TcpConnection>&)>;
         // 回调函数，连接建立
@@ -62,14 +63,31 @@ namespace mnsx {
 
             /**
              * 暴露给逻辑层，用来发送数据
-             * @param data
+             * @param message
              */
-            void send(const std::vector<uint8_t>& data);
+            void send(const std::string& message);
+            /**
+             * 暴露给逻辑层，用来发送数据
+             * @param message
+             * @param len
+             */
+            void send(const char* message, size_t len);
 
             /**
              * 暴露给逻辑层，用来关闭
              */
             void shutdown();
+
+            /**
+             * @brief input_buffer_ Getter
+             * @return
+             */
+            ByteBuffer* getInputBuffer() { return &input_buffer_; }
+            /**
+             * @brief output_buffer_ Getter
+             * @return
+             */
+            ByteBuffer* getOutputBuffer() {return &output_buffer_; }
 
             /**
              * 消息处理回调
@@ -91,8 +109,9 @@ namespace mnsx {
             /**
              * 发送数据底层实现
              * @param data
+             * @param len
              */
-            void sendInLoop(const std::vector<uint8_t>& data);
+            void sendInLoop(const char* data, size_t len);
 
             /**
              * 处理对事件
@@ -117,10 +136,8 @@ namespace mnsx {
             std::unique_ptr<Socket> socket_; // 当前连接对应的Socket，不是线程使用，使用智能指针保证生命周期
             std::unique_ptr<Channel> channel_; // 当前连接对应的Channel
 
-            std::vector<uint8_t> input_buffer_; // 读取缓冲区
-            std::vector<uint8_t> output_buffer_; // 写入缓冲区
-
-            ModbusMessage parser_; // 协议解析
+            ByteBuffer input_buffer_; // 读取缓冲区
+            ByteBuffer output_buffer_; // 写入缓冲区
 
             // 回调函数，暴露给业务层
             OnModbusMessageCallback on_modbus_message_callback_;
