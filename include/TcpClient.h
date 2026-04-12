@@ -7,7 +7,7 @@
 #ifndef MNSX_ACHILLESLINK_TCPCLIENT_H
 #define MNSX_ACHILLESLINK_TCPCLIENT_H
 
-#include "TcpConnection.h"
+#include "net/TcpConnection.h"
 #include "../src/net/InetAddress.h"
 
 #include <memory>
@@ -46,7 +46,7 @@ namespace mnsx {
              * @brief 暴露给业务层，Setter
              * @param cb
              */
-            void setMessageCallback(const OnModbusMessageCallback& cb) { message_callback_ = cb; }
+            void setMessageCallback(const OnMessageCallback& cb) { message_callback_ = cb; }
 
         private:
             /**
@@ -73,7 +73,7 @@ namespace mnsx {
             std::shared_ptr<TcpConnection> connection_; // 客户端只有一个维护生命周期的连接
 
             OnConnectionCallback connection_callback_; // 连接回调函数
-            OnModbusMessageCallback message_callback_; // 消息回调函数
+            OnMessageCallback message_callback_; // 消息回调函数
         };
     }
 }

@@ -11,7 +11,7 @@
 #include <memory>
 #include <functional>
 
-#include "TcpConnection.h"
+#include "net/TcpConnection.h"
 #include "../src/net/ByteBuffer.h"
 
 namespace mnsx {

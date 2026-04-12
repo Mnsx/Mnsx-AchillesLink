@@ -11,9 +11,9 @@
 #include <vector>
 #include <functional>
 
-#include "../src/net/Socket.h"
-#include "../src/net/ByteBuffer.h"
-#include "../src/reactor/Channel.h"
+#include "../../src/net/Socket.h"
+#include "../../src/net/ByteBuffer.h"
+#include "../../src/reactor/Channel.h"
 
 namespace mnsx {
     namespace achilles {
@@ -29,7 +29,7 @@ namespace mnsx {
         class EventLoop;
         class TcpConnection;
         // 回调函数，数据处理回调
-        using OnModbusMessageCallback = std::function<void(const std::shared_ptr<TcpConnection>&, ByteBuffer*)>;
+        using OnMessageCallback = std::function<void(const std::shared_ptr<TcpConnection>&, ByteBuffer*)>;
         // 回调函数，连接关闭回调
         using OnCloseCallback = std::function<void(const std::shared_ptr<TcpConnection>&)>;
         // 回调函数，连接建立
@@ -93,7 +93,7 @@ namespace mnsx {
              * 消息处理回调
              * @param on_message
              */
-            void setMessageCallback(OnModbusMessageCallback on_message);
+            void setMessageCallback(OnMessageCallback on_message);
             /**
              * 关闭回调
              * @param on_close
@@ -140,7 +140,7 @@ namespace mnsx {
             ByteBuffer output_buffer_; // 写入缓冲区
 
             // 回调函数，暴露给业务层
-            OnModbusMessageCallback on_modbus_message_callback_;
+            OnMessageCallback on_modbus_message_callback_;
             OnCloseCallback on_close_callback_;
             OnConnectionCallback on_connection_callback_;
         };

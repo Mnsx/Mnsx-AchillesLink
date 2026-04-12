@@ -4,8 +4,8 @@
  * @date 2026/4/8
  * @description 核心连接抽象，负责单条TCP连接的状态机、缓冲区以及非阻塞I/O数据收发
  */
-#include "TcpConnection.h"
-#include "EventLoop.h"
+#include "../../include/net/TcpConnection.h"
+#include "../../include/reactor/EventLoop.h"
 #include "Logger.h"
 
 #include <unistd.h>
@@ -208,7 +208,7 @@ void TcpConnection::setCloseCallback(OnCloseCallback on_close) {
     on_close_callback_ = on_close;
 }
 
-void TcpConnection::setMessageCallback(OnModbusMessageCallback on_message) {
+void TcpConnection::setMessageCallback(OnMessageCallback on_message) {
     on_modbus_message_callback_ = on_message;
 }
 

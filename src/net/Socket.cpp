@@ -78,7 +78,7 @@ int Socket::accept(InetAddress &peerAddress) {
     } else {
         peerAddress.setAddr(temp);
         LOG_DEBUG << "Accepted new connection from "
-                  << peerAddress.getIp() << ":" << peerAddress.getPort() << ", FD: " << new_fd;
+                  << peerAddress.getIp() << ":" << peerAddress.getPort() << " [FD: " << new_fd << "]";
     }
 
     return new_fd;

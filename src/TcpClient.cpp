@@ -5,7 +5,7 @@
  * @description 单个Loop客户端，支持非阻塞连接与断线重连
  */
 #include "TcpClient.h"
-#include "EventLoop.h"
+#include "../include/reactor/EventLoop.h"
 #include "reactor/Channel.h"
 #include "Logger.h"
 

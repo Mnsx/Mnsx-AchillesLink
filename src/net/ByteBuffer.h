@@ -31,7 +31,7 @@ namespace mnsx {
                 reader_index_(PREPEND),
                 writer_index_(PREPEND) {
 
-                LOG_DEBUG << "CharonBuffer initialized with capacity: " << initial_size;
+                LOG_DEBUG << "ByteBuffer initialized with capacity: " << initial_size;
             }
             /**
              * @brief 析构函数
@@ -81,10 +81,11 @@ namespace mnsx {
                     return;
                 }
 
-                // 能装就继续装，装满了再输出
                 if (len < readableBytes()) {
+                    // 正常情况，消费了一部分数据指针往后移
                     reader_index_ += len;
                 } else {
+                    // 刚好可以消费所有数据，两个指针都回到PREPEND
                     retrieveAll();
                 }
             }
@@ -95,16 +96,27 @@ namespace mnsx {
                 reader_index_ = PREPEND;
                 writer_index_ = PREPEND;
             }
+
+            std::string retrieveAsString(size_t len) {
+                if (len > readableBytes()) {
+                    LOG_ERROR << "ByteBuffer::retrieveAsString() - Invalid length!";
+                    return "";
+                }
+
+                // 将数据拷贝到std::string
+                std::string res(peek(), len);
+
+                // 消费
+                retrieve(len);
+
+                return res;
+            }
             /**
              * @brief 消费所有数据，将数据转换为string
              * @return
              */
             std::string retrieveAllAsString() {
-                // 读取所有可读得数据，并转换为string
-                std::string res(peek(), readableBytes());
-                // 读取所有数据后，重置
-                retrieveAll();
-                return res;
+                return retrieveAsString(readableBytes());
             }
 
             /**
