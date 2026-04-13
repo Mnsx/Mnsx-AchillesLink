@@ -12,6 +12,7 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <cstring>
 #include <unistd.h>
 
 namespace mnsx {
@@ -37,6 +38,7 @@ namespace mnsx {
              * @brief 析构函数
              */
             ~ByteBuffer() = default;
+
             /**
              * @brief delete
              */
@@ -138,6 +140,22 @@ namespace mnsx {
             void append(const std::string& data) {
                 append(data.data(), data.size());
             }
+            /**
+             * @brief
+             * @param str
+             * @param header_len
+             */
+            void prepend(char * data, size_t len) {
+                if (len > prependBytes()) {
+                    return;
+                }
+
+                reader_index_ -= len;
+
+                const char* src = static_cast<const char*>(data);
+                std::memcpy(begin() + reader_index_, src, len);
+            }
+
             /**
              * @brief 根据提供得size判断，当前可写空间是否能够承载len大小的数据
              * @param len
